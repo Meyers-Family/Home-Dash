@@ -1,13 +1,46 @@
-// app.js
 (() => {
   const $ = (sel) => document.querySelector(sel);
 
-  const cfg = window.DASH_CONFIG || {};
-  const photos = (window.DASH_PHOTOS || []).map(p => `photos/${p}`);
+  // ---------- Settings (editable config stored locally) ----------
+  const SETTINGS_KEY = "homeDashboardSettingsV1";
+
+  function getDefaultConfig() {
+    return window.DASH_CONFIG || {};
+  }
+
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function saveSettings(obj) {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(obj));
+  }
+
+  function deepMerge(base, override) {
+    const out = Array.isArray(base) ? [...base] : { ...(base || {}) };
+    for (const [k, v] of Object.entries(override || {})) {
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        out[k] = deepMerge(out[k], v);
+      } else {
+        out[k] = v;
+      }
+    }
+    return out;
+  }
+
+  let cfg = deepMerge(getDefaultConfig(), loadSettings() || {});
+
+  const photosList = (window.DASH_PHOTOS || []).map(p => `photos/${p}`);
 
   // Elements
   const statusLine = $("#statusLine");
   const btnRefresh = $("#btnRefresh");
+  const btnSettings = $("#btnSettings");
 
   const clockTime = $("#clockTime");
   const clockDate = $("#clockDate");
@@ -104,8 +137,7 @@
   const NOTES_KEY = "homeDashboardNotesV1";
 
   function loadNotes() {
-    const txt = localStorage.getItem(NOTES_KEY) || "";
-    return txt;
+    return localStorage.getItem(NOTES_KEY) || "";
   }
 
   function saveNotes(txt) {
@@ -119,7 +151,6 @@
       notesPreview.textContent = "Tap to edit your list…";
       return;
     }
-    // Show only first ~12 lines as preview
     const lines = txt.split(/\r?\n/).slice(0, 12).join("\n");
     notesPreview.textContent = lines + (txt.split(/\r?\n/).length > 12 ? "\n…" : "");
   }
@@ -129,7 +160,7 @@
 
     const top = document.createElement("div");
     top.className = "smallmuted";
-    top.textContent = "Anything you type here saves instantly on this device (no login, no cloud drama).";
+    top.textContent = "This saves instantly on this device (no login, no cloud).";
     wrap.appendChild(top);
 
     const ta = document.createElement("textarea");
@@ -146,40 +177,21 @@
   }
 
   // ---------- Weather (Open-Meteo) ----------
-  // https://open-meteo.com/en/docs
   const WMO = {
-    0: "Clear",
-    1: "Mainly clear",
-    2: "Partly cloudy",
-    3: "Overcast",
-    45: "Fog",
-    48: "Rime fog",
-    51: "Light drizzle",
-    53: "Drizzle",
-    55: "Dense drizzle",
-    56: "Freezing drizzle (light)",
-    57: "Freezing drizzle",
-    61: "Rain (slight)",
-    63: "Rain",
-    65: "Heavy rain",
-    66: "Freezing rain (light)",
-    67: "Freezing rain",
-    71: "Snow (slight)",
-    73: "Snow",
-    75: "Heavy snow",
+    0: "Clear", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+    45: "Fog", 48: "Rime fog",
+    51: "Light drizzle", 53: "Drizzle", 55: "Dense drizzle",
+    56: "Freezing drizzle (light)", 57: "Freezing drizzle",
+    61: "Rain (slight)", 63: "Rain", 65: "Heavy rain",
+    66: "Freezing rain (light)", 67: "Freezing rain",
+    71: "Snow (slight)", 73: "Snow", 75: "Heavy snow",
     77: "Snow grains",
-    80: "Rain showers (slight)",
-    81: "Rain showers",
-    82: "Violent showers",
-    85: "Snow showers (slight)",
-    86: "Snow showers",
-    95: "Thunderstorm",
-    96: "Thunderstorm w/ hail",
-    99: "Thunderstorm w/ heavy hail"
+    80: "Rain showers (slight)", 81: "Rain showers", 82: "Violent showers",
+    85: "Snow showers (slight)", 86: "Snow showers",
+    95: "Thunderstorm", 96: "Thunderstorm w/ hail", 99: "Thunderstorm w/ heavy hail"
   };
 
   function windToText(ms) {
-    // m/s to mph
     const mph = ms * 2.236936;
     return `${Math.round(mph)} mph`;
   }
@@ -190,7 +202,7 @@
       if (typeof w.lat !== "number" || typeof w.lon !== "number") {
         weatherHint.textContent = "config";
         wxTemp.textContent = "--°";
-        wxMeta.textContent = "Set lat/lon in config.js";
+        wxMeta.textContent = "Open Settings ⚙ and enter lat/lon.";
         return;
       }
 
@@ -225,9 +237,9 @@
       wxMeta.textContent = `${desc}\nFeels like ${Math.round(wxState.feels)}° • Wind ${windToText(wxState.wind)} • ${wxState.label}`;
       weatherHint.textContent = "live";
       setStatus("Online ✅");
-    } catch (e) {
+    } catch {
       weatherHint.textContent = "offline";
-      wxMeta.textContent = "Weather unavailable. Because networks love attention.";
+      wxMeta.textContent = "Weather unavailable (network issue).";
       setStatus("Some feeds offline ⚠️");
     }
   }
@@ -248,19 +260,11 @@
       </div>
     `;
     openPanel("Weather", html);
-    $("#btnRadar").onclick = () => {
-      // Simple option: open an external radar site (fast + reliable)
-      window.open("https://www.wunderground.com/radar/us/ky", "_blank");
-    };
+    $("#btnRadar").onclick = () => window.open("https://www.wunderground.com/radar/us/ky", "_blank");
   }
 
   // ---------- Calendar (ICS) ----------
-  // Minimal ICS parsing for DTSTART/DTEND/SUMMARY/LOCATION
   function parseICSTime(v) {
-    // Handles:
-    // - YYYYMMDD (all-day)
-    // - YYYYMMDDTHHMMSSZ
-    // - YYYYMMDDTHHMMSS (local-ish)
     const s = String(v || "").trim();
     if (/^\d{8}$/.test(s)) {
       const y = +s.slice(0,4), m = +s.slice(4,6)-1, d = +s.slice(6,8);
@@ -275,7 +279,6 @@
   }
 
   function unfoldICSLines(text) {
-    // RFC5545 line folding: lines starting with space are continuations
     const lines = text.replace(/\r\n/g, "\n").split("\n");
     const out = [];
     for (const line of lines) {
@@ -341,9 +344,7 @@
   function isTodayEvent(ev) {
     const s = ev.dtstart;
     if (!s) return false;
-    const t0 = startOfToday();
-    const t1 = endOfToday();
-    return s >= t0 && s <= t1;
+    return s >= startOfToday() && s <= endOfToday();
   }
 
   function renderCalPreview() {
@@ -378,33 +379,25 @@
     try {
       const url = cfg.calendar && cfg.calendar.icsUrl ? String(cfg.calendar.icsUrl).trim() : "";
       if (!url) {
-        calHint.textContent = "config";
-        calList.innerHTML = `<div class="smallmuted">Paste your calendar ICS URL in <b>config.js</b>.</div>`;
+        calHint.textContent = "setup";
+        calList.innerHTML = `<div class="smallmuted">Open Settings ⚙ and paste your ICS URL.</div>`;
         return;
       }
 
       calHint.textContent = "updating";
-      // Note: many Google ICS feeds do NOT set CORS headers.
-      // If it fails, host a tiny local proxy or use a local .ics file served by your machine.
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error(`Calendar HTTP ${res.status}`);
       const text = await res.text();
 
-      const allEvents = parseICS(text);
-      calState = allEvents;
+      calState = parseICS(text);
       renderCalPreview();
       setStatus("Online ✅");
-    } catch (e) {
+    } catch {
       calHint.textContent = "blocked";
       calList.innerHTML =
         `<div class="smallmuted">
-          Calendar feed blocked (usually CORS). Because the internet is held together with tape.<br><br>
-          Fix options:
-          <ul>
-            <li>Run this dashboard locally with a simple local server (CORS often easier).</li>
-            <li>Use a tiny proxy endpoint (I can give you one).</li>
-            <li>Export an .ics file and host it on the same server.</li>
-          </ul>
+          Calendar blocked (CORS). We’ll fix it later with a proxy option.<br>
+          For now you can still use the rest of the dashboard.
         </div>`;
       setStatus("Some feeds offline ⚠️");
     }
@@ -418,7 +411,7 @@
     hdr.textContent = "Today (from your ICS feed).";
     wrap.appendChild(hdr);
 
-    const todayEvents = calState.filter(isTodayEvent).sort((a,b) => a.dtstart - b.dtstart);
+    const todayEvents = calState.filter(isTodayEvent).sort((((a,b) => a.dtstart - b.dtstart));
     if (!todayEvents.length) {
       const none = document.createElement("div");
       none.className = "bigline";
@@ -458,19 +451,18 @@
       src = `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(yt.playlistId)}&autoplay=1&rel=0&modestbranding=1`;
       label = "YouTube Playlist";
     } else if (yt.channelUrl) {
-      // Channel URL can't embed directly as a player; we open it.
-      openPanel("YouTube", `<div class="smallmuted">This is a channel link. Tap the button to open it.</div>`, "Open Channel", () => {
+      openPanel("YouTube", `<div class="smallmuted">Tap the button to open your channel.</div>`, "Open Channel", () => {
         window.open(yt.channelUrl, "_blank");
       });
       return;
     } else {
-      openPanel("YouTube", `<div class="smallmuted">Set youtube.videoId or playlistId in config.js</div>`);
+      openPanel("YouTube", `<div class="smallmuted">Open Settings ⚙ and set a YouTube Video ID.</div>`);
       return;
     }
 
     const wrap = document.createElement("div");
     wrap.innerHTML = `
-      <div class="smallmuted" style="margin-bottom:10px;">${escapeHtml(label)} (tap video controls as needed)</div>
+      <div class="smallmuted" style="margin-bottom:10px;">${escapeHtml(label)}</div>
       <div style="border:1px solid var(--line); border-radius:16px; overflow:hidden; background:rgba(255,255,255,.03);">
         <iframe
           width="100%"
@@ -487,25 +479,26 @@
 
   // ---------- Photos ----------
   function startPhotoLoop() {
-    if (!photos.length) {
+    if (!photosList.length) {
       photoHint.textContent = "none";
-      photoImg.alt = "No photos configured";
+      photoImg.removeAttribute("src");
       return;
     }
-    photoHint.textContent = `${photos.length} pics`;
-    photoImg.src = photos[0];
+
+    photoHint.textContent = `${photosList.length} pics`;
+    photoImg.src = photosList[photoIndex] || photosList[0];
 
     const interval = Math.max(3, (cfg.photos && cfg.photos.intervalSec) ? cfg.photos.intervalSec : 12) * 1000;
     if (photoTimer) clearInterval(photoTimer);
     photoTimer = setInterval(() => {
-      photoIndex = (photoIndex + 1) % photos.length;
-      photoImg.src = photos[photoIndex];
+      photoIndex = (photoIndex + 1) % photosList.length;
+      photoImg.src = photosList[photoIndex];
     }, interval);
   }
 
   function openPhotosPanel() {
-    if (!photos.length) {
-      openPanel("Photos", `<div class="smallmuted">Add images to <b>photos/</b> and list them in <b>photos/photos.js</b>.</div>`);
+    if (!photosList.length) {
+      openPanel("Photos", `<div class="smallmuted">Add images to photos/ and list them in photos/photos.js</div>`);
       return;
     }
 
@@ -513,7 +506,7 @@
 
     const note = document.createElement("div");
     note.className = "smallmuted";
-    note.textContent = "Tap Next/Prev. (Zoom is browser-native: pinch/ctrl+scroll.)";
+    note.textContent = "Tap Next/Prev.";
     wrap.appendChild(note);
 
     const imgBox = document.createElement("div");
@@ -524,7 +517,7 @@
     imgBox.style.background = "rgba(255,255,255,.03)";
 
     const img = document.createElement("img");
-    img.src = photos[photoIndex] || photos[0];
+    img.src = photosList[photoIndex] || photosList[0];
     img.style.width = "100%";
     img.style.height = "70vh";
     img.style.objectFit = "contain";
@@ -539,84 +532,113 @@
     const prev = document.createElement("button");
     prev.textContent = "◀ Prev";
     prev.onclick = () => {
-      photoIndex = (photoIndex - 1 + photos.length) % photos.length;
-      img.src = photos[photoIndex];
+      photoIndex = (photoIndex - 1 + photosList.length) % photosList.length;
+      img.src = photosList[photoIndex];
     };
 
     const next = document.createElement("button");
     next.textContent = "Next ▶";
     next.onclick = () => {
-      photoIndex = (photoIndex + 1) % photos.length;
-      img.src = photos[photoIndex];
+      photoIndex = (photoIndex + 1) % photosList.length;
+      img.src = photosList[photoIndex];
     };
-
-    const openFolderTip = document.createElement("div");
-    openFolderTip.className = "smallmuted";
-    openFolderTip.style.marginTop = "10px";
-    openFolderTip.textContent = "Tip: Keep photos optimized (under ~2–4MB each) for snappy touch loading.";
 
     controls.appendChild(prev);
     controls.appendChild(next);
 
     wrap.appendChild(imgBox);
     wrap.appendChild(controls);
-    wrap.appendChild(openFolderTip);
 
     openPanel("Photos", wrap);
   }
 
-  // ---------- Tile interactions ----------
-  function bindTiles() {
-    document.querySelectorAll(".tile").forEach(tile => {
-      tile.addEventListener("click", () => {
-        const which = tile.getAttribute("data-open");
-        if (which === "clock") openPanel("Clock", `<div class="bigline">${escapeHtml(clockTime.textContent)}</div><div class="smallmuted">${escapeHtml(clockDate.textContent)}</div>`);
-        if (which === "weather") openWeatherPanel();
-        if (which === "calendar") openCalendarPanel();
-        if (which === "notes") openNotesEditor();
-        if (which === "youtube") openYouTubePanel();
-        if (which === "photos") openPhotosPanel();
-      });
-    });
-  }
+  // ---------- Settings panel ----------
+  function openSettingsPanel() {
+    const current = cfg;
+    const wrap = document.createElement("div");
 
-  // ---------- Overlay close ----------
-  btnClose.addEventListener("click", closePanel);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) closePanel();
-  });
+    wrap.innerHTML = `
+      <div class="notice">
+        Fill this in once. It saves on this device/browser.
+      </div>
 
-  // ---------- Refresh ----------
-  btnRefresh.addEventListener("click", async () => {
-    setStatus("Refreshing…");
-    await Promise.allSettled([fetchWeather(), fetchCalendar()]);
-  });
+      <div style="height:12px;"></div>
 
-  // ---------- Init ----------
-  function init() {
-    bindTiles();
+      <div class="formRow">
+        <label>Home Latitude</label>
+        <input id="setLat" placeholder="37.0834" value="${current.weather?.lat ?? ""}">
+      </div>
 
-    // Clock tick
-    tickClock();
-    setInterval(tickClock, 1000);
+      <div class="formRow">
+        <label>Home Longitude</label>
+        <input id="setLon" placeholder="-88.6000" value="${current.weather?.lon ?? ""}">
+      </div>
 
-    // Notes
-    renderNotesPreview();
+      <div class="formRow">
+        <label>Timezone</label>
+        <input id="setTz" placeholder="America/Chicago" value="${current.weather?.timezone ?? "America/Chicago"}">
+      </div>
 
-    // YouTube meta label
-    ytMeta.textContent = "Tap for full screen player";
+      <div class="formRow">
+        <label>Calendar ICS URL</label>
+        <input id="setIcs" placeholder="https://... .ics" value="${current.calendar?.icsUrl ?? ""}">
+      </div>
 
-    // Photos
-    startPhotoLoop();
+      <div class="formRow">
+        <label>YouTube Video ID</label>
+        <input id="setYtVideo" placeholder="dQw4w9WgXcQ" value="${current.youtube?.videoId ?? ""}">
+      </div>
 
-    // Feeds
-    fetchWeather();
-    fetchCalendar();
+      <div class="formRow">
+        <label>Photo Interval (sec)</label>
+        <input id="setPhotoInt" placeholder="12" value="${current.photos?.intervalSec ?? 12}">
+      </div>
 
-    // Update feeds periodically
-    setInterval(fetchWeather, 10 * 60 * 1000);
-    setInterval(fetchCalendar, 15 * 60 * 1000);
-  }
+      <div class="formActions">
+        <button id="btnSaveSettings">Save</button>
+        <button id="btnResetSettings">Reset</button>
+      </div>
+    `;
 
-  init();
-})();
+    openPanel("Settings", wrap);
+
+    const $id = (id) => wrap.querySelector(id);
+
+    $id("#btnSaveSettings").onclick = async () => {
+      const lat = parseFloat($id("#setLat").value);
+      const lon = parseFloat($id("#setLon").value);
+      const tz = ($id("#setTz").value || "America/Chicago").trim();
+      const icsUrl = ($id("#setIcs").value || "").trim();
+      const videoId = ($id("#setYtVideo").value || "").trim();
+      const intervalSec = parseInt($id("#setPhotoInt").value || "12", 10);
+
+      const newSettings = {
+        weather: {
+          lat: Number.isFinite(lat) ? lat : (cfg.weather?.lat ?? 0),
+          lon: Number.isFinite(lon) ? lon : (cfg.weather?.lon ?? 0),
+          timezone: tz,
+          label: "Home"
+        },
+        calendar: {
+          icsUrl,
+          maxItemsToday: cfg.calendar?.maxItemsToday ?? 6
+        },
+        youtube: {
+          videoId: videoId || undefined
+        },
+        photos: {
+          intervalSec: Number.isFinite(intervalSec) ? intervalSec : 12
+        }
+      };
+
+      saveSettings(newSettings);
+      cfg = deepMerge(getDefaultConfig(), newSettings);
+
+      setStatus("Saved ✅ Refreshing…");
+      await Promise.allSettled([fetchWeather(), fetchCalendar()]);
+      startPhotoLoop();
+
+      closePanel();
+    };
+
+    $id

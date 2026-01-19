@@ -2,19 +2,16 @@
   --bg:#0b0f14;
   --panel:#0f1620;
   --tile:#111a25;
-  --tile2:#0f1a2a;
   --text:#e7eef9;
   --muted:#9bb0c8;
   --line:rgba(255,255,255,.08);
-  --accent:#4aa3ff;
   --good:#5ce2a5;
-  --warn:#ffd36a;
-  --bad:#ff6b6b;
   --radius:18px;
 }
 
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
+
 body{
   margin:0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -42,6 +39,7 @@ body{
   background: var(--good);
   box-shadow: 0 0 18px rgba(92,226,165,.55);
 }
+
 .title{ font-weight:700; letter-spacing:.2px; }
 .subtitle{ font-size:12px; color:var(--muted); margin-top:2px; }
 
@@ -82,12 +80,14 @@ body{
   justify-content:space-between;
   margin-bottom: 10px;
 }
+
 .tile h2{
   margin:0;
   font-size:16px;
   font-weight:700;
   color: var(--text);
 }
+
 .hint{
   font-size:12px;
   color: var(--muted);
@@ -98,21 +98,21 @@ body{
 }
 
 .clock{ display:flex; flex-direction:column; gap:6px; padding-top: 8px; }
+
 .time{
   font-size: 56px;
   font-weight: 800;
   letter-spacing: 1px;
 }
+
 .date{ color: var(--muted); font-size: 16px; }
 
 .weather{ display:flex; flex-direction:column; gap:8px; padding-top: 4px; }
 .weather .big{ font-size: 56px; font-weight: 800; }
 .meta{ color: var(--muted); font-size: 14px; line-height: 1.35; }
 
-.list{
-  overflow:auto;
-  padding-right: 4px;
-}
+.list{ overflow:auto; padding-right: 4px; }
+
 .item{
   border:1px solid var(--line);
   background: rgba(255,255,255,.03);
@@ -120,12 +120,14 @@ body{
   padding: 10px 10px;
   margin-bottom: 10px;
 }
+
 .item .row{
   display:flex;
   justify-content:space-between;
   gap:10px;
   align-items:flex-start;
 }
+
 .item .what{ font-weight: 700; }
 .item .when{ color: var(--muted); font-size: 12px; white-space:nowrap; }
 .item .where{ color: var(--muted); font-size: 13px; margin-top: 6px; }
@@ -145,6 +147,7 @@ body{
   gap:12px;
   padding-top: 8px;
 }
+
 .ytBox{
   width: 64px; height: 64px;
   border-radius: 16px;
@@ -164,6 +167,7 @@ body{
   flex:1;
   min-height:0;
 }
+
 .photoFrame img{
   width:100%;
   height:100%;
@@ -179,6 +183,7 @@ button{
   border-radius: 12px;
   padding: 10px 12px;
 }
+
 button:active{ transform: scale(0.992); }
 
 button.ghost{
@@ -207,6 +212,7 @@ button.close{
   justify-content:stretch;
   padding: 14px;
 }
+
 .hidden{ display:none; }
 
 .panel{
@@ -219,6 +225,7 @@ button.close{
   display:flex;
   flex-direction:column;
 }
+
 .panel-head{
   padding: 12px 14px;
   border-bottom:1px solid var(--line);
@@ -226,10 +233,12 @@ button.close{
   justify-content:space-between;
   align-items:center;
 }
+
 .panel-head h2{
   margin:0;
   font-size: 18px;
 }
+
 .panel-actions{ display:flex; gap:10px; align-items:center; }
 
 .panel-body{
@@ -256,7 +265,52 @@ textarea{
   font-weight: 800;
   margin: 4px 0 10px;
 }
+
 .smallmuted{ color: var(--muted); font-size: 14px; }
+
+/* -------- Settings form styles -------- */
+.formRow{
+  display:grid;
+  grid-template-columns: 220px 1fr;
+  gap: 10px;
+  align-items:center;
+  margin-bottom: 12px;
+}
+
+.formRow label{
+  color: var(--muted);
+  font-size: 14px;
+}
+
+input{
+  width: 100%;
+  border-radius: 14px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 16px;
+  outline: none;
+}
+
+input::placeholder{ color: rgba(155,176,200,.65); }
+
+.formActions{
+  display:flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.notice{
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  border-radius: 16px;
+  padding: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.35;
+}
 
 @media (max-width: 900px){
   body{ overflow:auto; }
@@ -266,4 +320,5 @@ textarea{
     grid-template-rows: none;
   }
   textarea{ height: 55vh; }
+  .formRow{ grid-template-columns: 1fr; }
 }
