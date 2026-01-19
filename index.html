@@ -8,7 +8,6 @@
 </head>
 <body>
 
-  <!-- Top Bar -->
   <header class="topbar">
     <div class="brand">
       <div class="dot"></div>
@@ -24,9 +23,7 @@
     </div>
   </header>
 
-  <!-- Main Tiles -->
   <main class="grid">
-
     <section class="tile" data-open="clock">
       <h2>Clock</h2>
       <div class="time" id="clockTime">--:--</div>
@@ -58,10 +55,8 @@
       <h2>Photos</h2>
       <img id="photoImg" alt="Photos" />
     </section>
-
   </main>
 
-  <!-- Overlay / Modal -->
   <div class="overlay hidden" id="overlay">
     <div class="panel">
       <header class="panel-head">
@@ -72,7 +67,7 @@
     </div>
   </div>
 
-  <!-- Scripts (ORDER + DEFER MATTERS) -->
+  <!-- FIX IS RIGHT HERE: defer -->
   <script src="config.js" defer></script>
   <script src="photos/photos.js" defer></script>
   <script src="app.js" defer></script>
