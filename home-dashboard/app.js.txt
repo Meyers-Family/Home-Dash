@@ -1,0 +1,622 @@
+// app.js
+(() => {
+  const $ = (sel) => document.querySelector(sel);
+
+  const cfg = window.DASH_CONFIG || {};
+  const photos = (window.DASH_PHOTOS || []).map(p => `photos/${p}`);
+
+  // Elements
+  const statusLine = $("#statusLine");
+  const btnRefresh = $("#btnRefresh");
+
+  const clockTime = $("#clockTime");
+  const clockDate = $("#clockDate");
+
+  const wxTemp = $("#wxTemp");
+  const wxMeta = $("#wxMeta");
+  const weatherHint = $("#weatherHint");
+
+  const calList = $("#calList");
+  const calHint = $("#calHint");
+
+  const notesPreview = $("#notesPreview");
+
+  const ytMeta = $("#ytMeta");
+
+  const photoImg = $("#photoImg");
+  const photoHint = $("#photoHint");
+
+  const overlay = $("#overlay");
+  const panelTitle = $("#panelTitle");
+  const panelBody = $("#panelBody");
+  const panelAction = $("#panelAction");
+  const btnClose = $("#btnClose");
+
+  // State
+  let wxState = null;
+  let calState = [];
+  let photoIndex = 0;
+  let photoTimer = null;
+
+  // ---------- Helpers ----------
+  const pad2 = (n) => String(n).padStart(2, "0");
+
+  function formatTime(d) {
+    let h = d.getHours();
+    const m = d.getMinutes();
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12;
+    if (h === 0) h = 12;
+    return `${h}:${pad2(m)} ${ampm}`;
+  }
+
+  function formatDateLine(d) {
+    return d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  }
+
+  function setStatus(msg) {
+    statusLine.textContent = msg;
+  }
+
+  function openPanel(title, bodyNodeOrHtml, actionLabel = null, actionFn = null) {
+    panelTitle.textContent = title;
+
+    panelBody.innerHTML = "";
+    if (typeof bodyNodeOrHtml === "string") {
+      panelBody.innerHTML = bodyNodeOrHtml;
+    } else {
+      panelBody.appendChild(bodyNodeOrHtml);
+    }
+
+    if (actionLabel && actionFn) {
+      panelAction.style.display = "";
+      panelAction.textContent = actionLabel;
+      panelAction.onclick = actionFn;
+    } else {
+      panelAction.style.display = "none";
+      panelAction.onclick = null;
+    }
+
+    overlay.classList.remove("hidden");
+  }
+
+  function closePanel() {
+    overlay.classList.add("hidden");
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  // ---------- Clock ----------
+  function tickClock() {
+    const now = new Date();
+    clockTime.textContent = formatTime(now);
+    clockDate.textContent = formatDateLine(now);
+  }
+
+  // ---------- Notes ----------
+  const NOTES_KEY = "homeDashboardNotesV1";
+
+  function loadNotes() {
+    const txt = localStorage.getItem(NOTES_KEY) || "";
+    return txt;
+  }
+
+  function saveNotes(txt) {
+    localStorage.setItem(NOTES_KEY, txt);
+    renderNotesPreview();
+  }
+
+  function renderNotesPreview() {
+    const txt = loadNotes().trim();
+    if (!txt) {
+      notesPreview.textContent = "Tap to edit your list…";
+      return;
+    }
+    // Show only first ~12 lines as preview
+    const lines = txt.split(/\r?\n/).slice(0, 12).join("\n");
+    notesPreview.textContent = lines + (txt.split(/\r?\n/).length > 12 ? "\n…" : "");
+  }
+
+  function openNotesEditor() {
+    const wrap = document.createElement("div");
+
+    const top = document.createElement("div");
+    top.className = "smallmuted";
+    top.textContent = "Anything you type here saves instantly on this device (no login, no cloud drama).";
+    wrap.appendChild(top);
+
+    const ta = document.createElement("textarea");
+    ta.value = loadNotes();
+    ta.placeholder = "Examples:\n- Take trash out\n- Lunches\n- Laundry: whites\n- Call dentist\n";
+    ta.addEventListener("input", () => saveNotes(ta.value));
+    wrap.appendChild(ta);
+
+    openPanel("Notes", wrap, "Clear", () => {
+      saveNotes("");
+      ta.value = "";
+    });
+    setTimeout(() => ta.focus(), 60);
+  }
+
+  // ---------- Weather (Open-Meteo) ----------
+  // https://open-meteo.com/en/docs
+  const WMO = {
+    0: "Clear",
+    1: "Mainly clear",
+    2: "Partly cloudy",
+    3: "Overcast",
+    45: "Fog",
+    48: "Rime fog",
+    51: "Light drizzle",
+    53: "Drizzle",
+    55: "Dense drizzle",
+    56: "Freezing drizzle (light)",
+    57: "Freezing drizzle",
+    61: "Rain (slight)",
+    63: "Rain",
+    65: "Heavy rain",
+    66: "Freezing rain (light)",
+    67: "Freezing rain",
+    71: "Snow (slight)",
+    73: "Snow",
+    75: "Heavy snow",
+    77: "Snow grains",
+    80: "Rain showers (slight)",
+    81: "Rain showers",
+    82: "Violent showers",
+    85: "Snow showers (slight)",
+    86: "Snow showers",
+    95: "Thunderstorm",
+    96: "Thunderstorm w/ hail",
+    99: "Thunderstorm w/ heavy hail"
+  };
+
+  function windToText(ms) {
+    // m/s to mph
+    const mph = ms * 2.236936;
+    return `${Math.round(mph)} mph`;
+  }
+
+  async function fetchWeather() {
+    try {
+      const w = cfg.weather || {};
+      if (typeof w.lat !== "number" || typeof w.lon !== "number") {
+        weatherHint.textContent = "config";
+        wxTemp.textContent = "--°";
+        wxMeta.textContent = "Set lat/lon in config.js";
+        return;
+      }
+
+      weatherHint.textContent = "updating";
+      const tz = encodeURIComponent(w.timezone || "America/Chicago");
+      const url =
+        `https://api.open-meteo.com/v1/forecast` +
+        `?latitude=${encodeURIComponent(w.lat)}` +
+        `&longitude=${encodeURIComponent(w.lon)}` +
+        `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m` +
+        `&temperature_unit=fahrenheit` +
+        `&wind_speed_unit=ms` +
+        `&timezone=${tz}`;
+
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error(`Weather HTTP ${res.status}`);
+      const data = await res.json();
+
+      const cur = data.current;
+      wxState = {
+        temp: cur.temperature_2m,
+        feels: cur.apparent_temperature,
+        code: cur.weather_code,
+        wind: cur.wind_speed_10m,
+        windDir: cur.wind_direction_10m,
+        time: cur.time,
+        label: (cfg.weather && cfg.weather.label) ? cfg.weather.label : "Weather"
+      };
+
+      wxTemp.textContent = `${Math.round(wxState.temp)}°`;
+      const desc = WMO[wxState.code] || `Code ${wxState.code}`;
+      wxMeta.textContent = `${desc}\nFeels like ${Math.round(wxState.feels)}° • Wind ${windToText(wxState.wind)} • ${wxState.label}`;
+      weatherHint.textContent = "live";
+      setStatus("Online ✅");
+    } catch (e) {
+      weatherHint.textContent = "offline";
+      wxMeta.textContent = "Weather unavailable. Because networks love attention.";
+      setStatus("Some feeds offline ⚠️");
+    }
+  }
+
+  function openWeatherPanel() {
+    if (!wxState) {
+      openPanel("Weather", `<div class="smallmuted">No weather loaded yet.</div>`);
+      return;
+    }
+    const desc = WMO[wxState.code] || `Code ${wxState.code}`;
+    const html = `
+      <div class="bigline">${Math.round(wxState.temp)}°</div>
+      <div class="smallmuted">${escapeHtml(desc)} • Feels like ${Math.round(wxState.feels)}°</div>
+      <div class="smallmuted" style="margin-top:10px;">Wind: ${escapeHtml(windToText(wxState.wind))} • Dir ${Math.round(wxState.windDir)}°</div>
+      <div class="smallmuted" style="margin-top:10px;">Updated: ${escapeHtml(wxState.time)}</div>
+      <div style="margin-top:16px;">
+        <button id="btnRadar">Open Radar</button>
+      </div>
+    `;
+    openPanel("Weather", html);
+    $("#btnRadar").onclick = () => {
+      // Simple option: open an external radar site (fast + reliable)
+      window.open("https://www.wunderground.com/radar/us/ky", "_blank");
+    };
+  }
+
+  // ---------- Calendar (ICS) ----------
+  // Minimal ICS parsing for DTSTART/DTEND/SUMMARY/LOCATION
+  function parseICSTime(v) {
+    // Handles:
+    // - YYYYMMDD (all-day)
+    // - YYYYMMDDTHHMMSSZ
+    // - YYYYMMDDTHHMMSS (local-ish)
+    const s = String(v || "").trim();
+    if (/^\d{8}$/.test(s)) {
+      const y = +s.slice(0,4), m = +s.slice(4,6)-1, d = +s.slice(6,8);
+      return { date: new Date(y, m, d), allDay: true };
+    }
+    const m = s.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/);
+    if (!m) return { date: null, allDay: false };
+    const y = +m[1], mo = +m[2]-1, d = +m[3], hh = +m[4], mm = +m[5], ss = +m[6];
+    const isZ = !!m[7];
+    const dt = isZ ? new Date(Date.UTC(y, mo, d, hh, mm, ss)) : new Date(y, mo, d, hh, mm, ss);
+    return { date: dt, allDay: false };
+  }
+
+  function unfoldICSLines(text) {
+    // RFC5545 line folding: lines starting with space are continuations
+    const lines = text.replace(/\r\n/g, "\n").split("\n");
+    const out = [];
+    for (const line of lines) {
+      if (!line) continue;
+      if (line.startsWith(" ") || line.startsWith("\t")) {
+        if (out.length) out[out.length - 1] += line.slice(1);
+      } else {
+        out.push(line);
+      }
+    }
+    return out;
+  }
+
+  function parseICS(text) {
+    const lines = unfoldICSLines(text);
+    const events = [];
+    let cur = null;
+
+    for (const line of lines) {
+      if (line === "BEGIN:VEVENT") {
+        cur = { summary: "", location: "", dtstart: null, dtend: null, allDay: false };
+        continue;
+      }
+      if (line === "END:VEVENT") {
+        if (cur && cur.dtstart) events.push(cur);
+        cur = null;
+        continue;
+      }
+      if (!cur) continue;
+
+      const [rawKey, ...rest] = line.split(":");
+      const value = rest.join(":");
+      const key = rawKey.split(";")[0].toUpperCase();
+
+      if (key === "SUMMARY") cur.summary = value || "";
+      if (key === "LOCATION") cur.location = value || "";
+      if (key === "DTSTART") {
+        const t = parseICSTime(value);
+        cur.dtstart = t.date;
+        cur.allDay = t.allDay;
+      }
+      if (key === "DTEND") {
+        const t = parseICSTime(value);
+        cur.dtend = t.date;
+      }
+    }
+
+    return events;
+  }
+
+  function startOfToday() {
+    const d = new Date();
+    d.setHours(0,0,0,0);
+    return d;
+  }
+
+  function endOfToday() {
+    const d = new Date();
+    d.setHours(23,59,59,999);
+    return d;
+  }
+
+  function isTodayEvent(ev) {
+    const s = ev.dtstart;
+    if (!s) return false;
+    const t0 = startOfToday();
+    const t1 = endOfToday();
+    return s >= t0 && s <= t1;
+  }
+
+  function renderCalPreview() {
+    calList.innerHTML = "";
+    const todayEvents = calState.filter(isTodayEvent).sort((a,b) => a.dtstart - b.dtstart);
+    const maxN = (cfg.calendar && cfg.calendar.maxItemsToday) ? cfg.calendar.maxItemsToday : 6;
+    const slice = todayEvents.slice(0, maxN);
+
+    if (!slice.length) {
+      calList.innerHTML = `<div class="smallmuted">No events today.</div>`;
+      calHint.textContent = "clear";
+      return;
+    }
+
+    for (const ev of slice) {
+      const when = ev.allDay ? "All day" : formatTime(ev.dtstart);
+      const el = document.createElement("div");
+      el.className = "item";
+      el.innerHTML = `
+        <div class="row">
+          <div class="what">${escapeHtml(ev.summary || "Event")}</div>
+          <div class="when">${escapeHtml(when)}</div>
+        </div>
+        ${ev.location ? `<div class="where">${escapeHtml(ev.location)}</div>` : ""}
+      `;
+      calList.appendChild(el);
+    }
+    calHint.textContent = "live";
+  }
+
+  async function fetchCalendar() {
+    try {
+      const url = cfg.calendar && cfg.calendar.icsUrl ? String(cfg.calendar.icsUrl).trim() : "";
+      if (!url) {
+        calHint.textContent = "config";
+        calList.innerHTML = `<div class="smallmuted">Paste your calendar ICS URL in <b>config.js</b>.</div>`;
+        return;
+      }
+
+      calHint.textContent = "updating";
+      // Note: many Google ICS feeds do NOT set CORS headers.
+      // If it fails, host a tiny local proxy or use a local .ics file served by your machine.
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error(`Calendar HTTP ${res.status}`);
+      const text = await res.text();
+
+      const allEvents = parseICS(text);
+      calState = allEvents;
+      renderCalPreview();
+      setStatus("Online ✅");
+    } catch (e) {
+      calHint.textContent = "blocked";
+      calList.innerHTML =
+        `<div class="smallmuted">
+          Calendar feed blocked (usually CORS). Because the internet is held together with tape.<br><br>
+          Fix options:
+          <ul>
+            <li>Run this dashboard locally with a simple local server (CORS often easier).</li>
+            <li>Use a tiny proxy endpoint (I can give you one).</li>
+            <li>Export an .ics file and host it on the same server.</li>
+          </ul>
+        </div>`;
+      setStatus("Some feeds offline ⚠️");
+    }
+  }
+
+  function openCalendarPanel() {
+    const wrap = document.createElement("div");
+
+    const hdr = document.createElement("div");
+    hdr.className = "smallmuted";
+    hdr.textContent = "Today (from your ICS feed).";
+    wrap.appendChild(hdr);
+
+    const todayEvents = calState.filter(isTodayEvent).sort((a,b) => a.dtstart - b.dtstart);
+    if (!todayEvents.length) {
+      const none = document.createElement("div");
+      none.className = "bigline";
+      none.textContent = "Nothing scheduled 🎉";
+      wrap.appendChild(none);
+      openPanel("Calendar", wrap);
+      return;
+    }
+
+    for (const ev of todayEvents) {
+      const box = document.createElement("div");
+      box.className = "item";
+      const when = ev.allDay ? "All day" : formatTime(ev.dtstart);
+      box.innerHTML = `
+        <div class="row">
+          <div class="what">${escapeHtml(ev.summary || "Event")}</div>
+          <div class="when">${escapeHtml(when)}</div>
+        </div>
+        ${ev.location ? `<div class="where">${escapeHtml(ev.location)}</div>` : ""}
+      `;
+      wrap.appendChild(box);
+    }
+
+    openPanel("Calendar", wrap);
+  }
+
+  // ---------- YouTube ----------
+  function openYouTubePanel() {
+    const yt = cfg.youtube || {};
+    let src = "";
+    let label = "YouTube";
+
+    if (yt.videoId) {
+      src = `https://www.youtube.com/embed/${encodeURIComponent(yt.videoId)}?autoplay=1&rel=0&modestbranding=1`;
+      label = "YouTube Video";
+    } else if (yt.playlistId) {
+      src = `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(yt.playlistId)}&autoplay=1&rel=0&modestbranding=1`;
+      label = "YouTube Playlist";
+    } else if (yt.channelUrl) {
+      // Channel URL can't embed directly as a player; we open it.
+      openPanel("YouTube", `<div class="smallmuted">This is a channel link. Tap the button to open it.</div>`, "Open Channel", () => {
+        window.open(yt.channelUrl, "_blank");
+      });
+      return;
+    } else {
+      openPanel("YouTube", `<div class="smallmuted">Set youtube.videoId or playlistId in config.js</div>`);
+      return;
+    }
+
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `
+      <div class="smallmuted" style="margin-bottom:10px;">${escapeHtml(label)} (tap video controls as needed)</div>
+      <div style="border:1px solid var(--line); border-radius:16px; overflow:hidden; background:rgba(255,255,255,.03);">
+        <iframe
+          width="100%"
+          height="520"
+          src="${src}"
+          title="YouTube"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen></iframe>
+      </div>
+    `;
+    openPanel("YouTube", wrap);
+  }
+
+  // ---------- Photos ----------
+  function startPhotoLoop() {
+    if (!photos.length) {
+      photoHint.textContent = "none";
+      photoImg.alt = "No photos configured";
+      return;
+    }
+    photoHint.textContent = `${photos.length} pics`;
+    photoImg.src = photos[0];
+
+    const interval = Math.max(3, (cfg.photos && cfg.photos.intervalSec) ? cfg.photos.intervalSec : 12) * 1000;
+    if (photoTimer) clearInterval(photoTimer);
+    photoTimer = setInterval(() => {
+      photoIndex = (photoIndex + 1) % photos.length;
+      photoImg.src = photos[photoIndex];
+    }, interval);
+  }
+
+  function openPhotosPanel() {
+    if (!photos.length) {
+      openPanel("Photos", `<div class="smallmuted">Add images to <b>photos/</b> and list them in <b>photos/photos.js</b>.</div>`);
+      return;
+    }
+
+    const wrap = document.createElement("div");
+
+    const note = document.createElement("div");
+    note.className = "smallmuted";
+    note.textContent = "Tap Next/Prev. (Zoom is browser-native: pinch/ctrl+scroll.)";
+    wrap.appendChild(note);
+
+    const imgBox = document.createElement("div");
+    imgBox.style.marginTop = "12px";
+    imgBox.style.border = "1px solid var(--line)";
+    imgBox.style.borderRadius = "16px";
+    imgBox.style.overflow = "hidden";
+    imgBox.style.background = "rgba(255,255,255,.03)";
+
+    const img = document.createElement("img");
+    img.src = photos[photoIndex] || photos[0];
+    img.style.width = "100%";
+    img.style.height = "70vh";
+    img.style.objectFit = "contain";
+    img.style.display = "block";
+    imgBox.appendChild(img);
+
+    const controls = document.createElement("div");
+    controls.style.display = "flex";
+    controls.style.gap = "10px";
+    controls.style.marginTop = "12px";
+
+    const prev = document.createElement("button");
+    prev.textContent = "◀ Prev";
+    prev.onclick = () => {
+      photoIndex = (photoIndex - 1 + photos.length) % photos.length;
+      img.src = photos[photoIndex];
+    };
+
+    const next = document.createElement("button");
+    next.textContent = "Next ▶";
+    next.onclick = () => {
+      photoIndex = (photoIndex + 1) % photos.length;
+      img.src = photos[photoIndex];
+    };
+
+    const openFolderTip = document.createElement("div");
+    openFolderTip.className = "smallmuted";
+    openFolderTip.style.marginTop = "10px";
+    openFolderTip.textContent = "Tip: Keep photos optimized (under ~2–4MB each) for snappy touch loading.";
+
+    controls.appendChild(prev);
+    controls.appendChild(next);
+
+    wrap.appendChild(imgBox);
+    wrap.appendChild(controls);
+    wrap.appendChild(openFolderTip);
+
+    openPanel("Photos", wrap);
+  }
+
+  // ---------- Tile interactions ----------
+  function bindTiles() {
+    document.querySelectorAll(".tile").forEach(tile => {
+      tile.addEventListener("click", () => {
+        const which = tile.getAttribute("data-open");
+        if (which === "clock") openPanel("Clock", `<div class="bigline">${escapeHtml(clockTime.textContent)}</div><div class="smallmuted">${escapeHtml(clockDate.textContent)}</div>`);
+        if (which === "weather") openWeatherPanel();
+        if (which === "calendar") openCalendarPanel();
+        if (which === "notes") openNotesEditor();
+        if (which === "youtube") openYouTubePanel();
+        if (which === "photos") openPhotosPanel();
+      });
+    });
+  }
+
+  // ---------- Overlay close ----------
+  btnClose.addEventListener("click", closePanel);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closePanel();
+  });
+
+  // ---------- Refresh ----------
+  btnRefresh.addEventListener("click", async () => {
+    setStatus("Refreshing…");
+    await Promise.allSettled([fetchWeather(), fetchCalendar()]);
+  });
+
+  // ---------- Init ----------
+  function init() {
+    bindTiles();
+
+    // Clock tick
+    tickClock();
+    setInterval(tickClock, 1000);
+
+    // Notes
+    renderNotesPreview();
+
+    // YouTube meta label
+    ytMeta.textContent = "Tap for full screen player";
+
+    // Photos
+    startPhotoLoop();
+
+    // Feeds
+    fetchWeather();
+    fetchCalendar();
+
+    // Update feeds periodically
+    setInterval(fetchWeather, 10 * 60 * 1000);
+    setInterval(fetchCalendar, 15 * 60 * 1000);
+  }
+
+  init();
+})();

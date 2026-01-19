@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Home Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="dot"></div>
+      <div>
+        <div class="title">Home Dashboard</div>
+        <div class="subtitle" id="statusLine">Booting…</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="ghost" id="btnRefresh" title="Refresh">↻</button>
+    </div>
+  </header>
+
+  <main class="grid" id="tileGrid">
+    <!-- Clock -->
+    <section class="tile" data-open="clock">
+      <div class="tile-head">
+        <h2>Clock</h2>
+        <span class="hint">tap</span>
+      </div>
+      <div class="clock">
+        <div class="time" id="clockTime">--:--</div>
+        <div class="date" id="clockDate">---</div>
+      </div>
+    </section>
+
+    <!-- Weather -->
+    <section class="tile" data-open="weather">
+      <div class="tile-head">
+        <h2>Weather</h2>
+        <span class="hint" id="weatherHint">loading</span>
+      </div>
+      <div class="weather">
+        <div class="big" id="wxTemp">--°</div>
+        <div class="meta" id="wxMeta">--</div>
+      </div>
+    </section>
+
+    <!-- Calendar -->
+    <section class="tile" data-open="calendar">
+      <div class="tile-head">
+        <h2>Today</h2>
+        <span class="hint" id="calHint">loading</span>
+      </div>
+      <div class="list" id="calList"></div>
+    </section>
+
+    <!-- Notes / To-do -->
+    <section class="tile" data-open="notes">
+      <div class="tile-head">
+        <h2>Notes</h2>
+        <span class="hint">saved</span>
+      </div>
+      <div class="notesPreview" id="notesPreview">Tap to edit your list…</div>
+    </section>
+
+    <!-- YouTube -->
+    <section class="tile" data-open="youtube">
+      <div class="tile-head">
+        <h2>YouTube</h2>
+        <span class="hint">tap</span>
+      </div>
+      <div class="youtubePreview">
+        <div class="ytBox">▶</div>
+        <div class="meta" id="ytMeta">Kitchen music / recipes</div>
+      </div>
+    </section>
+
+    <!-- Photos -->
+    <section class="tile" data-open="photos">
+      <div class="tile-head">
+        <h2>Photos</h2>
+        <span class="hint" id="photoHint">loading</span>
+      </div>
+      <div class="photoFrame">
+        <img id="photoImg" alt="Slideshow" />
+      </div>
+    </section>
+  </main>
+
+  <!-- Overlay / Expanded panel -->
+  <div class="overlay hidden" id="overlay" role="dialog" aria-modal="true">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 id="panelTitle">Panel</h2>
+        <div class="panel-actions">
+          <button class="ghost" id="panelAction" style="display:none;"></button>
+          <button class="close" id="btnClose">✕</button>
+        </div>
+      </div>
+      <div class="panel-body" id="panelBody"></div>
+    </div>
+  </div>
+
+  <!-- Config + Photos list + App -->
+  <script src="config.js"></script>
+  <script src="photos/photos.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
