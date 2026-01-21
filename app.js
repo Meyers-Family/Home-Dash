@@ -44,20 +44,25 @@ notes.addEventListener("input", () => {
 
 // ---------- FEEDS ----------
 function ytEmbed(id) {
-  return `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&playsinline=1&rel=0&origin=${location.origin}`;
+  // youtube-nocookie is often more reliable for embeds now
+  const origin = encodeURIComponent(location.origin);
+  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&playsinline=1&rel=0&origin=${origin}`;
 }
 
 function renderFeed() {
   const feed = cfg.feeds[feedIndex];
   const wrap = document.getElementById("feedWrap");
+
+  // IMPORTANT: DO NOT set referrerpolicy="no-referrer" (causes Error 153)
   wrap.innerHTML = `
     <iframe
       src="${ytEmbed(feed.id)}"
-      allow="autoplay; encrypted-media"
+      allow="autoplay; encrypted-media; picture-in-picture"
       allowfullscreen
-      referrerpolicy="no-referrer"
+      referrerpolicy="strict-origin-when-cross-origin"
     ></iframe>
   `;
+
   document.getElementById("feedCount").textContent =
     `${feedIndex + 1} / ${cfg.feeds.length} — ${feed.name}`;
 }
