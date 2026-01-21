@@ -3,71 +3,100 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Home Dashboard</title>
+  <title>Home Dash</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
   <header class="topbar">
     <div class="brand">
-      <div class="dot"></div>
+      <div class="dot" id="dot"></div>
       <div>
-        <div class="title">Home Dashboard</div>
+        <div class="title">Home Dash</div>
         <div class="subtitle" id="statusLine">Booting…</div>
       </div>
     </div>
 
     <div class="topbar-right">
-      <button class="ghost" id="btnSettings" title="Settings">⚙</button>
       <button class="ghost" id="btnRefresh" title="Refresh">↻</button>
     </div>
   </header>
 
   <main class="grid">
+
     <section class="tile" data-open="clock">
-      <h2>Clock</h2>
-      <div class="time" id="clockTime">--:--</div>
-      <div class="date" id="clockDate">---</div>
+      <div class="tile-head">
+        <h2>Clock</h2>
+        <span class="hint">live</span>
+      </div>
+      <div class="clock">
+        <div class="time" id="clockTime">--:--</div>
+        <div class="date" id="clockDate">---</div>
+      </div>
     </section>
 
     <section class="tile" data-open="weather">
-      <h2>Weather</h2>
-      <div class="big" id="wxTemp">--°</div>
-      <div class="meta" id="wxMeta">--</div>
+      <div class="tile-head">
+        <h2>Weather</h2>
+        <span class="hint" id="wxHint">…</span>
+      </div>
+      <div class="weather">
+        <div class="big" id="wxTemp">--°</div>
+        <div class="meta" id="wxMeta">Loading…</div>
+      </div>
     </section>
 
-    <section class="tile" data-open="calendar">
-      <h2>Today</h2>
-      <div id="calList">—</div>
+    <section class="tile" data-open="alerts">
+      <div class="tile-head">
+        <h2>Alerts</h2>
+        <span class="hint" id="alertHint">checking</span>
+      </div>
+      <div class="list" id="alertList">
+        <div class="smallmuted">No alerts yet.</div>
+      </div>
     </section>
 
     <section class="tile" data-open="notes">
-      <h2>Notes</h2>
-      <pre id="notesPreview">Tap to edit…</pre>
+      <div class="tile-head">
+        <h2>Notes</h2>
+        <span class="hint">saved</span>
+      </div>
+      <div class="notesPreview" id="notesPreview">Tap to edit…</div>
     </section>
 
-    <section class="tile" data-open="youtube">
-      <h2>YouTube</h2>
-      <div class="meta">Tap to open</div>
+    <section class="tile" data-open="feeds">
+      <div class="tile-head">
+        <h2 id="feedTitle">Live Feeds</h2>
+        <span class="hint" id="feedHint">rotating</span>
+      </div>
+      <div class="feedPreview" id="feedPreview"></div>
+      <div class="meta" id="feedLabel">—</div>
     </section>
 
     <section class="tile" data-open="photos">
-      <h2>Photos</h2>
-      <img id="photoImg" alt="Photos" />
+      <div class="tile-head">
+        <h2>Photos</h2>
+        <span class="hint" id="photoHint">—</span>
+      </div>
+      <div class="photoFrame">
+        <img id="photoImg" alt="Slideshow" />
+      </div>
     </section>
+
   </main>
 
+  <!-- Overlay -->
   <div class="overlay hidden" id="overlay">
     <div class="panel">
-      <header class="panel-head">
-        <h2 id="panelTitle"></h2>
-        <button id="btnClose" class="close">✕</button>
-      </header>
-      <div id="panelBody"></div>
+      <div class="panel-head">
+        <h2 id="panelTitle">Panel</h2>
+        <button class="close" id="btnClose">✕</button>
+      </div>
+      <div class="panel-body" id="panelBody"></div>
     </div>
   </div>
 
-  <!-- FIX IS RIGHT HERE: defer -->
+  <!-- DEFER so JS runs AFTER elements exist -->
   <script src="config.js" defer></script>
   <script src="photos/photos.js" defer></script>
   <script src="app.js" defer></script>
