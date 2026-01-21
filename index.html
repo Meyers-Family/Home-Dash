@@ -1,62 +1,164 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Home Dash</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- IMPORTANT: fixes YouTube Error 153 -->
-  <meta name="referrer" content="strict-origin-when-cross-origin" />
-
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=1" />
 </head>
+
 <body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <div class="brand-text">
+        <div class="title">Home Dash</div>
+        <div class="status" id="statusText">Booting…</div>
+      </div>
+    </div>
 
-<header class="topbar">
-  <div>
-    <strong>Home Dash</strong>
-    <div id="status">Online ✓</div>
+    <div class="actions">
+      <button class="icon-btn" id="btnSettings" title="Settings">
+        ⚙️
+      </button>
+      <button class="icon-btn" id="btnReload" title="Reload">
+        ↻
+      </button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <!-- Clock -->
+    <section class="tile" id="tileClock">
+      <div class="tile-head">
+        <div class="tile-title">Clock</div>
+        <div class="pill">live</div>
+      </div>
+      <div class="tile-body">
+        <div class="clock-time" id="clockTime">--:--</div>
+        <div class="clock-date" id="clockDate">---</div>
+      </div>
+    </section>
+
+    <!-- Weather -->
+    <section class="tile" id="tileWeather">
+      <div class="tile-head">
+        <div class="tile-title">Weather</div>
+        <div class="pill" id="weatherPill">loading</div>
+      </div>
+      <div class="tile-body">
+        <div class="weather-temp" id="wxTemp">--°</div>
+        <div class="weather-meta" id="wxMeta">Loading…</div>
+        <div class="weather-loc" id="wxLoc">—</div>
+      </div>
+    </section>
+
+    <!-- Alerts -->
+    <section class="tile" id="tileAlerts">
+      <div class="tile-head">
+        <div class="tile-title">Alerts</div>
+        <div class="pill" id="alertsPill">checking</div>
+      </div>
+      <div class="tile-body">
+        <div class="alerts-text" id="alertsText">Loading…</div>
+      </div>
+    </section>
+
+    <!-- Notes -->
+    <section class="tile" id="tileNotes">
+      <div class="tile-head">
+        <div class="tile-title">Notes</div>
+        <div class="pill" id="notesPill">saved</div>
+      </div>
+      <div class="tile-body">
+        <textarea id="notesBox" class="notes" placeholder="Type notes here…"></textarea>
+      </div>
+    </section>
+
+    <!-- Live Feeds -->
+    <section class="tile" id="tileFeeds">
+      <div class="tile-head">
+        <div class="tile-title">Live Feeds</div>
+        <div class="pill" id="feedsPill">rotating</div>
+      </div>
+      <div class="tile-body">
+        <div class="player-wrap">
+          <iframe
+            id="feedFrame"
+            class="player"
+            title="Live Feed"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowfullscreen
+            referrerpolicy="strict-origin-when-cross-origin"
+          ></iframe>
+          <div class="player-fallback" id="feedFallback" hidden>
+            <div class="fallback-title" id="fallbackTitle">Feed unavailable</div>
+            <a class="fallback-link" id="fallbackLink" href="#" target="_blank" rel="noreferrer">Open feed</a>
+          </div>
+        </div>
+        <div class="feed-caption">
+          <div id="feedName">—</div>
+          <div class="feed-count" id="feedCount">—</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Photos (placeholder) -->
+    <section class="tile" id="tilePhotos">
+      <div class="tile-head">
+        <div class="tile-title">Photos</div>
+        <button class="pill pill-btn" id="photosToggle" title="Hide/Show photos">—</button>
+      </div>
+      <div class="tile-body">
+        <div class="photos-placeholder">Slideshow placeholder</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Settings Modal -->
+  <div class="modal" id="settingsModal" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <div class="modal-title">Settings</div>
+        <button class="icon-btn" id="btnCloseSettings" title="Close">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Home label</label>
+          <input id="setLabel" type="text" placeholder="Smithland, KY" />
+        </div>
+
+        <div class="form-2">
+          <div class="form-row">
+            <label>Latitude</label>
+            <input id="setLat" type="number" step="0.0001" />
+          </div>
+          <div class="form-row">
+            <label>Longitude</label>
+            <input id="setLon" type="number" step="0.0001" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label>Rotate feeds every (seconds)</label>
+          <input id="setRotateSec" type="number" min="10" step="1" />
+        </div>
+
+        <div class="hint">
+          Saves automatically to this browser (localStorage). No accounts. No magic. 🙂
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <button class="btn" id="btnSaveSettings">Save</button>
+        <button class="btn btn-ghost" id="btnResetSettings">Reset</button>
+      </div>
+    </div>
   </div>
-</header>
 
-<main class="grid">
-
-  <section class="tile">
-    <h2>Clock</h2>
-    <div id="time" class="big"></div>
-    <div id="date"></div>
-  </section>
-
-  <section class="tile">
-    <h2>Weather</h2>
-    <div id="wxTemp" class="big">--°</div>
-    <div id="wxText">Loading…</div>
-  </section>
-
-  <section class="tile">
-    <h2>Alerts</h2>
-    <div>No alerts (manual mode)</div>
-  </section>
-
-  <section class="tile">
-    <h2>Notes</h2>
-    <textarea id="notes" placeholder="Type notes here…"></textarea>
-  </section>
-
-  <section class="tile">
-    <h2>Live Feeds</h2>
-    <div id="feedWrap"></div>
-    <div id="feedCount"></div>
-  </section>
-
-  <section class="tile">
-    <h2>Photos</h2>
-    <div>Slideshow placeholder</div>
-  </section>
-
-</main>
-
-<script src="config.js"></script>
-<script src="app.js"></script>
+  <!-- IMPORTANT SCRIPT ORDER -->
+  <script src="./config.js?v=1"></script>
+  <script src="./app.js?v=1"></script>
 </body>
 </html>
