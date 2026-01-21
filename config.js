@@ -1,5 +1,4 @@
 window.DASH_CONFIG = {
-  // Smithland, KY
   home: {
     lat: 37.1394,
     lon: -88.4028,
@@ -7,62 +6,45 @@ window.DASH_CONFIG = {
     label: "Smithland, KY"
   },
 
-  // Feed rotation seconds
-  rotateSec: 22,
+  rotateSec: 20,
 
-  // Normal mode feeds (animals + underwater + weather + deer pantry)
   feedsNormal: [
     {
-      name: "Underwater Reef Cam (Explore Oceans)",
+      name: "Underwater Reef Cam",
       type: "youtube",
       id: "1zcIUk66HX4"
     },
     {
-      name: "Brownville Deer Pantry (Skyline Webcams)",
-      type: "iframe",
-      url: "https://www.skylinewebcams.com/en/webcam/united-states/maine/brownville/deer-pantry.html"
+      name: "Brownville Deer Pantry",
+      type: "youtube",
+      id: "9Gv3mW5A0l4"
     },
     {
-      name: "Brown Bears (Explore)",
+      name: "Brown Bears – Alaska",
       type: "youtube",
       id: "1HGX0sWwA5w"
     },
     {
-      name: "African Waterhole (Explore)",
+      name: "African Safari Waterhole",
       type: "youtube",
       id: "ydYDqZQpim8"
     },
     {
-      name: "Bald Eagle Nest (Explore)",
+      name: "Bald Eagle Nest",
       type: "youtube",
       id: "B4-L2nfGcuE"
-    },
-    {
-      name: "Mount Washington Weather Cam",
-      type: "youtube",
-      id: "1i9Gm7EoR9A"
     }
   ],
 
-  // Severe mode feeds (only used when alerts are active near Smithland)
   feedsSevere: [
     {
-      name: "RYAN HALL, Y'ALL (24/7 Severe Monitoring)",
+      name: "Severe Weather Live (Ryan Hall)",
       type: "youtube",
       id: "ezp-7eLXBVs"
-    },
-    {
-      name: "Live Storm Chaser (Tornado/Severe Coverage)",
-      type: "youtube",
-      id: "B_YQdy8TrPQ"
-    },
-    {
-      name: "Radar / Weather Coverage Stream",
-      type: "youtube",
-      id: "0smDzw4Hil8"
     }
   ],
 
-  // Notes + Photos
-  photos: { intervalSec: 12 }
+  photos: {
+    intervalSec: 12
+  }
 };
